@@ -3,7 +3,6 @@ import sqlite3
 
 app = Flask(__name__)
 
-# Database create
 def init_db():
     conn = sqlite3.connect('database.db')
     cur = conn.cursor()
@@ -19,7 +18,6 @@ def init_db():
 
 init_db()
 
-# Dashboard Route
 @app.route('/', methods=['GET', 'POST'])
 def dashboard():
     conn = sqlite3.connect('database.db')
@@ -36,6 +34,28 @@ def dashboard():
     conn.close()
 
     return render_template('dashboard.html', tasks=tasks)
+
+
+# UPDATE status
+@app.route('/complete/<int:id>')
+def complete_task(id):
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+    cur.execute("UPDATE tasks SET status='Completed' WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect('/')
+
+
+# DELETE task
+@app.route('/delete/<int:id>')
+def delete_task(id):
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+    cur.execute("DELETE FROM tasks WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect('/')
 
 
 if __name__ == '__main__':
