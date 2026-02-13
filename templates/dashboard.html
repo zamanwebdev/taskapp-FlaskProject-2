@@ -1,10 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h3 class="mb-4">Add New Task</h3>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>Welcome, {{ session['user'] }}</h3>
+    <a href="/logout" class="btn btn-danger">Logout</a>
+</div>
+
+<h4 class="mb-3">Add New Task</h4>
 
 <form method="POST" class="d-flex mb-4">
-    <input type="text" name="title" class="form-control me-2" placeholder="Enter Task" required>
+    <input type="text"
+           name="title"
+           class="form-control me-2"
+           placeholder="Enter Task"
+           required>
     <button class="btn btn-primary">Add</button>
 </form>
 
@@ -30,8 +39,15 @@
             {% endif %}
         </td>
         <td>
-            <a href="/complete/{{ task[0] }}" class="btn btn-success btn-sm">Complete</a>
-            <a href="/delete/{{ task[0] }}" class="btn btn-danger btn-sm">Delete</a>
+            <a href="/complete/{{ task[0] }}"
+               class="btn btn-success btn-sm">
+               Complete
+            </a>
+
+            <a href="/delete/{{ task[0] }}"
+               class="btn btn-danger btn-sm">
+               Delete
+            </a>
         </td>
     </tr>
     {% endfor %}
