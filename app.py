@@ -23,7 +23,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
-            status TEXT DEFAULT 'Pending'
+            status TEXT DEFAULT 'Pending',
+            user_id INTEGER,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
 
@@ -78,6 +80,7 @@ def login():
 
         if user and check_password_hash(user[2], password):
             session['user'] = user[1]
+            session['user_id'] = user[0]  # ID store করছি
             return redirect('/dashboard')
         else:
             flash("Invalid credentials!")
@@ -97,7 +100,7 @@ def logout():
 # Protected Dashboard
 @app.route('/dashboard', methods=['GET','POST'])
 def dashboard():
-    if 'user' not in session:
+    if 'user_id' not in session:
         return redirect('/login')
 
     conn = sqlite3.connect('database.db')
@@ -105,14 +108,46 @@ def dashboard():
 
     if request.method == 'POST':
         title = request.form['title']
-        cur.execute("INSERT INTO tasks (title) VALUES (?)", (title,))
+        cur.execute("INSERT INTO tasks (title, user_id) VALUES (?, ?)",
+                    (title, session['user_id']))
         conn.commit()
 
-    cur.execute("SELECT * FROM tasks")
+    # শুধু logged in user এর task show করবে
+    cur.execute("SELECT * FROM tasks WHERE user_id=?",
+                (session['user_id'],))
     tasks = cur.fetchall()
+
     conn.close()
 
     return render_template('dashboard.html', tasks=tasks)
+# Complete Route Code is Bellow
+@app.route('/complete/<int:id>')
+def complete_task(id):
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+    cur.execute("UPDATE tasks SET status='Completed' WHERE id=? AND user_id=?",
+                (id, session['user_id']))
+    conn.commit()
+    conn.close()
+    return redirect('/dashboard')
+
+
+@app.route('/delete/<int:id>')
+def delete_task(id):
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+    cur.execute("DELETE FROM tasks WHERE id=? AND user_id=?",
+                (id, session['user_id']))
+    conn.commit()
+    conn.close()
+    return redirect('/dashboard')
+
 
 
 if __name__ == '__main__':
