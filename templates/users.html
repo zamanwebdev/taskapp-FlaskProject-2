@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3>User Management (Admin Only)</h3>
+
+<table class="table table-bordered">
+    <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Role</th>
+    </tr>
+
+    {% for user in users %}
+    <tr>
+        <td>{{ user[0] }}</td>
+        <td>{{ user[1] }}</td>
+        <td>{{ user[2] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

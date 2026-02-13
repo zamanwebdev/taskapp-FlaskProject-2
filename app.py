@@ -14,7 +14,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            role TEXT DEFAULT 'user'
         )
     ''')
 
@@ -51,8 +52,9 @@ def register():
         cur = conn.cursor()
 
         try:
-            cur.execute("INSERT INTO users (username, password) VALUES (?,?)",
-                        (username, password))
+            cur.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                        (username, password, 'user'))
+
             conn.commit()
             flash("Registration successful! Please login.")
             return redirect('/login')
@@ -80,8 +82,10 @@ def login():
 
         if user and check_password_hash(user[2], password):
             session['user'] = user[1]
-            session['user_id'] = user[0]  # ID store করছি
+            session['user_id'] = user[0]
+            session['role'] = user[3]  # role store করছি
             return redirect('/dashboard')
+
         else:
             flash("Invalid credentials!")
 
@@ -112,14 +116,18 @@ def dashboard():
                     (title, session['user_id']))
         conn.commit()
 
-    # শুধু logged in user এর task show করবে
-    cur.execute("SELECT * FROM tasks WHERE user_id=?",
-                (session['user_id'],))
-    tasks = cur.fetchall()
+    # 🔥 Role based data
+    if session['role'] == 'admin':
+        cur.execute("SELECT * FROM tasks")  # সব দেখবে
+    else:
+        cur.execute("SELECT * FROM tasks WHERE user_id=?",
+                    (session['user_id'],))
 
+    tasks = cur.fetchall()
     conn.close()
 
     return render_template('dashboard.html', tasks=tasks)
+
 # Complete Route Code is Bellow
 @app.route('/complete/<int:id>')
 def complete_task(id):
@@ -147,6 +155,20 @@ def delete_task(id):
     conn.commit()
     conn.close()
     return redirect('/dashboard')
+
+@app.route('/users')
+def users():
+    if 'role' not in session or session['role'] != 'admin':
+        return redirect('/dashboard')
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+    cur.execute("SELECT id, username, role FROM users")
+    users = cur.fetchall()
+    conn.close()
+
+    return render_template('users.html', users=users)
+
 
 
 
