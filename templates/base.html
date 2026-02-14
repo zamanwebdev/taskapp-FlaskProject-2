@@ -8,7 +8,7 @@
 
 <nav class="navbar navbar-dark bg-dark">
     <div class="container">
-        <span class="navbar-brand">Task App using Flask</span>
+        <span class="navbar-brand"><a href="{{ url_for('home') }}" class="text-light text-decoration-none">Task App using Flask</a></span>
     </div>
 </nav>
 
@@ -58,7 +58,7 @@
 
         <div class="text-center">
             <small>
-                © 2026 Task Manager | All Rights Reserved
+                © {{ current_year }} Task Manager | All Rights Reserved
             </small>
         </div>
     </div>

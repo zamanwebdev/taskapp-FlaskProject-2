@@ -2,11 +2,16 @@ from flask import Flask, render_template, request, redirect, session, flash, url
 from functools import wraps
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+
+
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
-
+@app.context_processor
+def inject_current_year():
+    return {'current_year': datetime.now().year}
 # =========================
 # Database Setup
 # =========================
