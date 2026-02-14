@@ -1,15 +1,19 @@
-from flask import Flask, render_template, request, redirect, session, flash
+from flask import Flask, render_template, request, redirect, session, flash, url_for
+from functools import wraps
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
+
+# =========================
+# Database Setup
+# =========================
 def init_db():
     conn = sqlite3.connect('database.db')
     cur = conn.cursor()
 
-    # User Table
     cur.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,7 +23,6 @@ def init_db():
         )
     ''')
 
-    # Task Table
     cur.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,13 +38,38 @@ def init_db():
 
 init_db()
 
-# Home Page
+
+# =========================
+# Decorators
+# =========================
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('user_id'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('role') != 'admin':
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# =========================
+# Routes
+# =========================
+
 @app.route('/')
 def home():
-    if 'user' in session:
-        return redirect('/dashboard')
     return render_template('home.html')
-# Register Route
+
+
+# ---------- Register ----------
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
@@ -52,12 +80,13 @@ def register():
         cur = conn.cursor()
 
         try:
-            cur.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-                        (username, password, 'user'))
-
+            cur.execute(
+                "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                (username, password, 'user')
+            )
             conn.commit()
             flash("Registration successful! Please login.")
-            return redirect('/login')
+            return redirect(url_for('login'))
         except:
             flash("Username already exists!")
         finally:
@@ -66,8 +95,7 @@ def register():
     return render_template('register.html')
 
 
-
-# Login
+# ---------- Login ----------
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
@@ -81,86 +109,59 @@ def login():
         conn.close()
 
         if user and check_password_hash(user[2], password):
-            session['user'] = user[1]
             session['user_id'] = user[0]
-            session['role'] = user[3]  # role store করছি
-            return redirect('/dashboard')
-
+            session['user'] = user[1]
+            session['role'] = user[3]
+            return redirect(url_for('dashboard'))
         else:
             flash("Invalid credentials!")
 
     return render_template('login.html')
 
 
-
-# Logout
+# ---------- Logout ----------
 @app.route('/logout')
+@login_required
 def logout():
-    session.pop('user', None)
-    return redirect('/')
+    session.clear()
+    return redirect(url_for('login'))
 
 
-
-# Protected Dashboard
+# ---------- Dashboard ----------
 @app.route('/dashboard', methods=['GET','POST'])
+@login_required
 def dashboard():
-    if 'user_id' not in session:
-        return redirect('/login')
 
     conn = sqlite3.connect('database.db')
     cur = conn.cursor()
 
     if request.method == 'POST':
         title = request.form['title']
-        cur.execute("INSERT INTO tasks (title, user_id) VALUES (?, ?)",
-                    (title, session['user_id']))
+        cur.execute(
+            "INSERT INTO tasks (title, user_id) VALUES (?, ?)",
+            (title, session['user_id'])
+        )
         conn.commit()
 
-    # 🔥 Role based data
     if session['role'] == 'admin':
-        cur.execute("SELECT * FROM tasks")  # সব দেখবে
+        cur.execute("SELECT * FROM tasks")
     else:
-        cur.execute("SELECT * FROM tasks WHERE user_id=?",
-                    (session['user_id'],))
+        cur.execute(
+            "SELECT * FROM tasks WHERE user_id=?",
+            (session['user_id'],)
+        )
 
     tasks = cur.fetchall()
     conn.close()
 
     return render_template('dashboard.html', tasks=tasks)
 
-# Complete Route Code is Bellow
-@app.route('/complete/<int:id>')
-def complete_task(id):
-    if 'user_id' not in session:
-        return redirect('/login')
 
-    conn = sqlite3.connect('database.db')
-    cur = conn.cursor()
-    cur.execute("UPDATE tasks SET status='Completed' WHERE id=? AND user_id=?",
-                (id, session['user_id']))
-    conn.commit()
-    conn.close()
-    return redirect('/dashboard')
-
-
-@app.route('/delete/<int:id>')
-def delete_task(id):
-    if 'user_id' not in session:
-        return redirect('/login')
-
-    conn = sqlite3.connect('database.db')
-    cur = conn.cursor()
-    cur.execute("DELETE FROM tasks WHERE id=? AND user_id=?",
-                (id, session['user_id']))
-    conn.commit()
-    conn.close()
-    return redirect('/dashboard')
-
+# ---------- Admin User Panel ----------
 @app.route('/users')
+@login_required
+@admin_required
 def users():
-    if 'role' not in session or session['role'] != 'admin':
-        return redirect('/dashboard')
-
     conn = sqlite3.connect('database.db')
     cur = conn.cursor()
     cur.execute("SELECT id, username, role FROM users")
@@ -170,7 +171,5 @@ def users():
     return render_template('users.html', users=users)
 
 
-
-
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=True)
